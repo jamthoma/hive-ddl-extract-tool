@@ -49,8 +49,8 @@ public class ExtractHiveDDL {
 
         System.out.println("database pattern = " + databasePattern);
         System.out.println("table pattern = " + tablePattern);
-        System.out.println("outut file = " + outFile);
-        System.out.println("use add parition SQL = " + USE_ADD_SQL);
+        System.out.println("output file = " + outFile);
+        System.out.println("use add partition SQL = " + USE_ADD_SQL);
         System.out.println("fully qualify table names = " + !USE_CONTEXT);
 
         long st = System.currentTimeMillis();
