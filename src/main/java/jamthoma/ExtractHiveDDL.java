@@ -126,11 +126,11 @@ public class ExtractHiveDDL {
         writer.println("--------------------------------------");
         writer.println("-- " + tableName);
         writer.println("--------------------------------------");
-        writer.println("! echo Creating table: " + tableName + "...;");
+        writer.println("!sh echo \"Creating table: " + tableName + "...\";");
         writer.println(createSQL);
         if (!addPartitionSqlLines.isEmpty()) {
             writer.println();
-            writer.println("! echo adding partitions: " + dbName + "." + tableName + "...;");
+            writer.println("!sh echo \"adding partitions: " + dbName + "." + tableName + "...\";");
             addPartitionSqlLines.forEach(line -> writer.println(line));
         }
     }
