@@ -61,9 +61,8 @@ public class HiveClient implements Closeable {
         TTransport transport = new TSocket(host, port);
         if (principal != null)
             transport = KerberosSaslHelper.getKerberosTransport(principal, host, transport, null, false);
-        else {
+        else
             transport = PlainSaslHelper.getPlainTransport(userName, password, transport);
-        }
 
         TBinaryProtocol protocol = new TBinaryProtocol(transport);
         transport.open();

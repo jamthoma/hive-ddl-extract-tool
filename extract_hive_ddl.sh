@@ -21,7 +21,10 @@ fi
 # larger # of databases & tables can require more memory
 export HADOOP_CLIENT_OPTS="-Xms4g -Xmx4g $HADOOP_CLIENT_OPTS"
 
-# 
+# control number of tables processed in parallel
+export HADOOP_CLIENT_OPTS="-Djava.util.concurrent.ForkJoinPool.common.parallelism=8 $HADOOP_CLIENT_OPTS"
+
+# locate jar file
 JAR_NAME=hive-ddl-extract-tool-1.0-SNAPSHOT.jar
 JAR_FILE=$(find . -name hive-ddl-extract-tool-1.0-SNAPSHOT.jar -print)
 echo "JAR_FILE=$JAR_FILE"

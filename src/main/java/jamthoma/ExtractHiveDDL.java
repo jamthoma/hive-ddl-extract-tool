@@ -1,6 +1,5 @@
 package jamthoma;
 
-import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.Partition;
 
@@ -18,8 +17,6 @@ import java.util.List;
  */
 public class ExtractHiveDDL {
 
-    private static HiveMetaStoreClient metaStoreClient;
-    private static HiveClient hiveClient;
     private static PrintWriter writer;
 
     /**
@@ -55,11 +52,10 @@ public class ExtractHiveDDL {
 
         long st = System.currentTimeMillis();
         try {
-            init();
             writer = new PrintWriter(new BufferedOutputStream(new FileOutputStream(outFile)));
 
             // count total number of tables
-            List<String> dbNames = metaStoreClient.getDatabases(databasePattern);
+            List<String> dbNames = HiveClientFactory.getHiveMetaStoreClient().getDatabases(databasePattern);
             System.out.println(dbNames.size() + " databases");
             Integer totalTables = dbNames.stream().mapToInt(dbName -> getTableNames(dbName, tablePattern).size()).sum();
             System.out.println(totalTables + " total tables");
@@ -89,30 +85,11 @@ public class ExtractHiveDDL {
     /**
      *
      */
-    private static void init() throws Exception {
-        metaStoreClient = new HiveMetaStoreClient(new HiveConf());
-        hiveClient = new HiveClient();
-    }
-
-    /**
-     *
-     */
     private static void cleanup() {
-        if (hiveClient != null) {
-            try {
-                hiveClient.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        if (metaStoreClient != null) {
-            metaStoreClient.close();
-        }
+        HiveClientFactory.cleanup();
         if (writer != null) {
             writer.close();
         }
-        hiveClient = null;
-        metaStoreClient = null;
         writer = null;
     }
 
@@ -129,10 +106,10 @@ public class ExtractHiveDDL {
 
         List<String> tableNames = getTableNames(dbName, tablePattern);
         assert tableNames != null;
-        tableNames.parallelStream().forEach(tableName -> writeTableSQL(dbName,tableName));
+        tableNames.parallelStream().forEach(tableName -> writeTableSQL(dbName, tableName));
         //tableNames.forEach(tableName -> writeTableSQL(dbName, tableName));
 
-        metaStoreClient.flushCache();
+        HiveClientFactory.getHiveMetaStoreClient().flushCache();
     }
 
     /**
@@ -163,7 +140,7 @@ public class ExtractHiveDDL {
      */
     private static List<String> getTableNames(String dbName, String tablePattern) {
         try {
-            return metaStoreClient.getTables(dbName, tablePattern);
+            return HiveClientFactory.getHiveMetaStoreClient().getTables(dbName, tablePattern);
         } catch (Exception e) {
             System.err.println("Error listing tables in " + dbName);
             e.printStackTrace();
@@ -176,7 +153,15 @@ public class ExtractHiveDDL {
      */
     private static String getTableCreateSQL(String dbName, String tableName) {
         try {
-            List<String> lines = hiveClient.getTableCreateDDL(dbName, tableName);
+            List<String> lines = HiveClientFactory.getHiveClient().getTableCreateDDL(dbName, tableName);
+            if (lines.size() > 0) {
+                // fix "CREATE TABLE"
+                //    CREATE TABLE `default.test` ==> CREATE TABLE `default`.`test`
+                String line = lines.get(0);
+                if (line.startsWith("CREATE TABLE")) {
+                    lines.set(0, fixCreateTable(line));
+                }
+            }
             StringBuilder sqlSB = new StringBuilder();
             for (String line : lines)
                 sqlSB.append(line).append('\n');
@@ -192,8 +177,25 @@ public class ExtractHiveDDL {
     /**
      *
      */
+    private static String fixCreateTable(String line) {
+        int si = line.indexOf('`');
+        int ei = line.indexOf('.');
+        if (si < ei && si != -1) {
+            String dbPart = line.substring(0, ei);
+            String tablePart = line.substring(ei + 1);
+            if (!dbPart.endsWith("`")) {
+                line = dbPart + "`.`" + tablePart;
+            }
+        }
+        return line;
+    }
+
+    /**
+     *
+     */
     private static List<String> getTablePartitions(String dbName, String tableName) {
         try {
+            HiveMetaStoreClient metaStoreClient = HiveClientFactory.getHiveMetaStoreClient();
             List<String> pNames = metaStoreClient.listPartitionNames(dbName, tableName, Short.MAX_VALUE);
             if (pNames.size() == 0) {
                 // no partitions, nothing to do
